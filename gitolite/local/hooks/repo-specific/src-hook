@@ -188,6 +188,24 @@ sub detect_date_in_future {
 } ## end sub detect_date_in_future
 
 ################################################################
+# Check for invalid file names:
+# - no colons (this prevents the files from being checked out on Windows)
+sub detect_invalid_file_names {
+    my (@added_files) = @_;
+
+    for my $file (@added_files) {
+        if ($file =~ /:/) {
+            do_die
+              "$ENV{GL_USER}, you are pushing a commit which adds a file with an invalid",
+              "name: '$file'.",
+              '',
+              'File names cannot contain colons, as this prevents them from being checked',
+              'out on Windows filesystems. Please rename the file and try again.';
+        } ## end if ($file =~ /:/)
+    } ## end for my $file (@added_files)
+} ## end sub detect_invalid_file_names
+
+################################################################
 # Main loop, everything called in here.
 for (<STDIN>) {
     chomp;
@@ -202,10 +220,14 @@ for (<STDIN>) {
         # Discard deletes, we don't care about their diffs
         my $diff = $git->command('show', '--irreversible-delete', '--date=raw', '--format=fuller', $rev);
 
-        cherry_pick($ref, join "\n", @log);
+        # Get a list of files added by the commit.
+        my @added_files = $git->command('diff-tree', '--no-commit-id', '--name-only', '-r', '--diff-filter=A', $rev);
+
+        cherry_pick($ref, join("\n", @log));
         stomp_bad_formatting(@log);
         detect_merge_conflicts($diff);
         detect_date_in_future($diff);
+        detect_invalid_file_names(@added_files);
     } ## end for my $rev ($git->command('log',...))
 } ## end for (<STDIN>)
 
