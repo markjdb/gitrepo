@@ -188,6 +188,22 @@ sub detect_date_in_future {
 } ## end sub detect_date_in_future
 
 ################################################################
+# Make sure no one is trying to push a fixup/squash/amend commit
+sub detect_wip_commit {
+    my ($subject) = @_;
+
+    if ($subject =~ m{\A(?:fixup|squash|amend)! }oms) {
+        return if has_option('wip-commit');
+
+        do_die                                                                            #
+          "$ENV{GL_USER}, you are pushing a fixup/squash/amend commit, this is most likely unintentional.", #
+          '',                                                                             #
+          'Please check that you really mean to do this, then use:',                      #
+          "\tgit push --push-option=wip-commit";
+    } ## end if ($subject =~ m{\A(?:fixup|squash|amend)! }oms)
+} ## end sub detect_fixup
+
+################################################################
 # Main loop, everything called in here.
 for (<STDIN>) {
     chomp;
@@ -206,6 +222,7 @@ for (<STDIN>) {
         stomp_bad_formatting(@log);
         detect_merge_conflicts($diff);
         detect_date_in_future($diff);
+        detect_wip_commit($log[0]);
     } ## end for my $rev ($git->command('log',...))
 } ## end for (<STDIN>)
 
